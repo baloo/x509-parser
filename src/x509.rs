@@ -22,6 +22,7 @@ use nom::multi::{many0, many1};
 use nom::{Err, Offset};
 use oid_registry::*;
 use rusticata_macros::newtype_enum;
+use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 use std::iter::FromIterator;
@@ -109,9 +110,9 @@ impl<'a> AttributeTypeAndValue<'a> {
     /// Note: the [`TryFrom`] trait is implemented for `&str`, so this is equivalent to `attr.try_into()`.
     ///
     /// Only NumericString, PrintableString, UTF8String and IA5String
-    /// are considered here. Other string types can be read using `as_slice`.
+    /// are considered here. Other string types can be read using `as_bytes`.
     #[inline]
-    pub fn as_str(&self) -> Result<&'a str, X509Error> {
+    pub fn as_str(&'a self) -> Result<&'a str, X509Error> {
         self.attr_value.as_str().map_err(|e| e.into())
     }
 
@@ -121,7 +122,8 @@ impl<'a> AttributeTypeAndValue<'a> {
     ///
     /// Note: the [`TryFrom`] trait is implemented for `&[u8]`, so this is equivalent to `attr.try_into()`.
     #[inline]
-    pub fn as_slice(&self) -> Result<&'a [u8], X509Error> {
+    #[deprecated(since = "0.10.0", note = "Please use `as_bytes` instead")]
+    pub fn as_slice(&'a self) -> Result<&'a [u8], X509Error> {
         self.attr_value.as_slice().map_err(|e| e.into())
     }
 }
@@ -337,7 +339,7 @@ impl<'a> FromDer<'a> for AlgorithmIdentifier<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct X509Name<'a> {
     pub(crate) rdn_seq: Vec<RelativeDistinguishedName<'a>>,
-    pub(crate) raw: &'a [u8],
+    pub(crate) raw: Cow<'a, [u8]>,
 }
 
 impl<'a> fmt::Display for X509Name<'a> {
@@ -353,7 +355,10 @@ impl<'a> X509Name<'a> {
     /// Builds a new `X509Name` from the provided elements.
     #[inline]
     pub const fn new(rdn_seq: Vec<RelativeDistinguishedName<'a>>, raw: &'a [u8]) -> Self {
-        X509Name { rdn_seq, raw }
+        X509Name {
+            rdn_seq,
+            raw: Cow::Borrowed(raw),
+        }
     }
 
     /// Attempt to format the current name, using the given registry to convert OIDs to strings.
@@ -365,8 +370,8 @@ impl<'a> X509Name<'a> {
     }
 
     // Not using the AsRef trait, as that would not give back the full 'a lifetime
-    pub fn as_raw(&self) -> &'a [u8] {
-        self.raw
+    pub fn as_raw(&'a self) -> &'a [u8] {
+        &self.raw
     }
 
     /// Return an iterator over the `RelativeDistinguishedName` components of the name
@@ -464,7 +469,10 @@ impl<'a> X509Name<'a> {
 impl<'a> FromIterator<RelativeDistinguishedName<'a>> for X509Name<'a> {
     fn from_iter<T: IntoIterator<Item = RelativeDistinguishedName<'a>>>(iter: T) -> Self {
         let rdn_seq = iter.into_iter().collect();
-        X509Name { rdn_seq, raw: &[] }
+        X509Name {
+            rdn_seq,
+            raw: Cow::Borrowed(&[]),
+        }
     }
 }
 
@@ -483,7 +491,7 @@ impl<'a> FromDer<'a> for X509Name<'a> {
             let len = start_i.offset(i);
             let name = X509Name {
                 rdn_seq,
-                raw: &start_i[..len],
+                raw: Cow::Borrowed(&start_i[..len]),
             };
             Ok((i, name))
         })(i)
@@ -643,7 +651,7 @@ mod tests {
                     ],
                 },
             ],
-            raw: &[], // incorrect, but enough for testing
+            raw: Cow::Borrowed(&[]), // incorrect, but enough for testing
         };
         assert_eq!(
             name.to_string(),

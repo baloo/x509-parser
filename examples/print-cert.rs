@@ -46,7 +46,7 @@ fn print_x509_extension(oid: &Oid, ext: &X509Extension) {
     println!(
         "    [crit:{} l:{}] {}: ",
         ext.critical,
-        ext.value.len(),
+        ext.value().len(),
         format_oid(oid)
     );
     match ext.parsed_extension() {

@@ -27,7 +27,7 @@ fn print_authority_key_identifier(aki: &AuthorityKeyIdentifier, level: usize) {
     if aki.authority_cert_issuer.is_some() {
         unimplemented!();
     }
-    if let Some(serial) = aki.authority_cert_serial {
+    if let Some(serial) = &aki.authority_cert_serial {
         let s = format_serial(serial);
         println!("{:indent$}serial: {}", "", &s, indent = level);
     }
@@ -65,7 +65,7 @@ fn print_x509_extension(oid: &Oid, ext: &X509Extension, level: usize) {
         x => {
             print!("{:indent$}{}:", "", format_oid(oid), indent = level);
             print!(" Critical={}", ext.critical);
-            print!(" len={}", ext.value.len());
+            print!(" len={}", ext.value().len());
             println!();
             println!(" {:indent$}{:?}", "", x, indent = level);
         }

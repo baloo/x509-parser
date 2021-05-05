@@ -21,6 +21,7 @@ use der_parser::*;
 use nom::{Offset, Parser};
 use oid_registry::Oid;
 use oid_registry::*;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use time::Duration;
 
@@ -321,8 +322,8 @@ pub struct TbsCertificate<'a> {
     pub issuer_uid: Option<UniqueIdentifier<'a>>,
     pub subject_uid: Option<UniqueIdentifier<'a>>,
     extensions: Vec<X509Extension<'a>>,
-    pub(crate) raw: &'a [u8],
-    pub(crate) raw_serial: &'a [u8],
+    pub(crate) raw: Cow<'a, [u8]>,
+    pub(crate) raw_serial: Cow<'a, [u8]>,
 }
 
 impl<'a> TbsCertificate<'a> {
@@ -543,13 +544,13 @@ impl<'a> TbsCertificate<'a> {
     }
 
     /// Get the raw bytes of the certificate serial number
-    pub fn raw_serial(&self) -> &'a [u8] {
-        self.raw_serial
+    pub fn raw_serial(&'a self) -> &'a [u8] {
+        &self.raw_serial
     }
 
     /// Get a formatted string of the certificate serial number, separated by ':'
     pub fn raw_serial_as_string(&self) -> String {
-        format_serial(self.raw_serial)
+        format_serial(&self.raw_serial)
     }
 }
 
@@ -575,7 +576,7 @@ fn get_extension_unique<'a, 'b>(
 impl<'a> AsRef<[u8]> for TbsCertificate<'a> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        self.raw
+        &self.raw
     }
 }
 
@@ -624,8 +625,8 @@ impl<'a> FromDer<'a> for TbsCertificate<'a> {
                 subject_uid,
                 extensions,
 
-                raw: &start_i[..len],
-                raw_serial: serial.0,
+                raw: Cow::Borrowed(&start_i[..len]),
+                raw_serial: Cow::Borrowed(serial.0),
             };
             Ok((i, tbs))
         })(i)
@@ -685,8 +686,8 @@ impl<'a> Parser<&'a [u8], TbsCertificate<'a>, X509Error> for TbsCertificateParse
                 subject_uid,
                 extensions,
 
-                raw: &start_i[..len],
-                raw_serial: serial.0,
+                raw: Cow::Borrowed(&start_i[..len]),
+                raw_serial: Cow::Borrowed(serial.0),
             };
             Ok((i, tbs))
         })(input)
